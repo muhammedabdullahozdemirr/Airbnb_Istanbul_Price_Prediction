@@ -1,0 +1,36 @@
+# Data files (too large for git)
+data/raw/*.csv
+data/processed/*.csv
+*.csv
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model outputs (large files)
+*.pkl
+*.joblib
+*.h5
+
+# Logs
+*.log
