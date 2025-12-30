@@ -1,8 +1,7 @@
-# FEATURE ENGINEERING
+#FEATURE ENGİNEERİNG
 """
-Kullanim:
-    from step_03_feature_engineering import create_features
-    train, test = create_features(train, test, raw_train, raw_test)
+python notebooks/02_feature_engineering.py
+
 """
 
 import pandas as pd
@@ -30,43 +29,31 @@ def extract_bathrooms(bathroom_text):
     return float(match.group(1)) if match else 0
 
 
-def haversine_distance(lat1, lon1, lat2, lon2):
-    """İki koordinat arası mesafe (km)"""
-    R = 6371
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
+def haversine_distance(lat1, lon1, lat2, lon2):         #2 kordinat arası mesafe km
+    R= 6371 #dünyanın yarıçapı. bunla çarpınca km olark çokıyor sonuç
+    lat1,lon1,lat2,lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlat= lat2 - lat1
+    dlon= lon2 - lon1
     a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
     c = 2 * np.arcsin(np.sqrt(a))
     return R * c
 
 
 def create_location_features(df):
-    """İstanbul'un önemli noktalarına uzaklık"""
-    
     SULTANAHMET = (41.0082, 28.9784)
     TAKSIM = (41.0370, 28.9850)
     BESIKTAS = (41.0422, 29.0067)
     
-    df['dist_to_sultanahmet'] = haversine_distance(
-        df['latitude'], df['longitude'], SULTANAHMET[0], SULTANAHMET[1])
-    
-    df['dist_to_taksim'] = haversine_distance(
-        df['latitude'], df['longitude'], TAKSIM[0], TAKSIM[1])
-    
-    df['dist_to_bosphorus'] = haversine_distance(
-        df['latitude'], df['longitude'], BESIKTAS[0], BESIKTAS[1])
-    
+    df['dist_to_sultanahmet'] = haversine_distance(df['latitude'], df['longitude'], SULTANAHMET[0], SULTANAHMET[1])
+    df['dist_to_taksim'] = haversine_distance(df['latitude'], df['longitude'], TAKSIM[0], TAKSIM[1])
+    df['dist_to_bosphorus'] = haversine_distance(df['latitude'], df['longitude'], BESIKTAS[0], BESIKTAS[1])
     df['dist_to_center_min'] = df[['dist_to_sultanahmet', 'dist_to_taksim']].min(axis=1)
-    
     df['is_european_side'] = (df['longitude'] < 29.0).astype(int)
     
     return df
 
 
 def create_amenity_features(df, raw_df):
-    """Amenities'den feature çıkar"""
-    
     amenities = raw_df['amenities']
     
     df['amenities_count'] = amenities.apply(extract_amenities_count)
@@ -83,11 +70,11 @@ def create_amenity_features(df, raw_df):
     df['has_gym'] = amenities.apply(lambda x: has_amenity(x, 'gym'))
     
     df['premium_amenities'] = (
-        df['has_pool'] * 3 +
-        df['has_gym'] * 2 +
-        df['has_parking'] * 2 +
-        df['has_balcony'] * 1 +
-        df['has_elevator'] * 1
+        df['has_pool']* 3+
+        df['has_gym']* 2+
+        df['has_parking']* 2+
+        df['has_balcony']* 1+
+        df['has_elevator']*1
     )
     
     df['basic_amenities'] = (
@@ -102,32 +89,27 @@ def create_features(train, test, raw_train=None, raw_test=None):
     train = train.copy()
     test = test.copy()
     
-    print("Creating features...")
-    
-    # Host Experience
-    reference_date = datetime(2025, 1, 1)
+        # host deneyimi
+    reference_date =datetime(2025, 1, 1)
     for df in [train, test]:
         if 'host_since' in df.columns:
-            df['host_since'] = pd.to_datetime(df['host_since'], errors='coerce')
-            df['host_experience_days'] = (reference_date - df['host_since']).dt.days
-            df['host_experience_days'] = df['host_experience_days'].fillna(0)
+            df['host_since'] =pd.to_datetime(df['host_since'], errors='coerce')
+            df['host_experience_days']= (reference_date - df['host_since']).dt.days
+            df['host_experience_days']= df['host_experience_days'].fillna(0)
     
-    # Price per person
+    # Kişi başı fiyat
     if 'price' in train.columns and 'accommodates' in train.columns:
         train['price_per_person'] = train['price'] / train['accommodates'].clip(lower=1)
     
-    # Location Features
-    print("  - Location features...")
+    print("Location features")
     train = create_location_features(train)
     test = create_location_features(test)
     
-    # Raw data'dan feature çıkarma
     if raw_train is not None:
-        print("  - Amenity features...")
-        
         raw_features_train = pd.DataFrame({'id': raw_train['id']})
         raw_features_test = pd.DataFrame({'id': raw_test['id']}) if raw_test is not None else None
         
+        # bath sayısı
         if 'bathrooms_text' in raw_train.columns:
             raw_features_train['bathrooms_clean'] = raw_train['bathrooms_text'].apply(extract_bathrooms)
             if raw_test is not None and 'bathrooms_text' in raw_test.columns:
@@ -145,20 +127,21 @@ def create_features(train, test, raw_train=None, raw_test=None):
                 for col in temp_test.columns:
                     raw_features_test[col] = temp_test[col].values
         
+         # merge
         train = train.merge(raw_features_train, on='id', how='left')
         if raw_test is not None and raw_features_test is not None:
             test = test.merge(raw_features_test, on='id', how='left')
         
-        amenity_cols = ['bathrooms_clean', 'amenities_count', 'has_wifi', 'has_kitchen', 'has_ac',
-                        'has_pool', 'has_parking', 'has_balcony', 'has_washer', 'has_tv',
-                        'has_heating', 'has_elevator', 'has_gym', 'premium_amenities', 'basic_amenities']
+        # Eksik değerleri doldur
+        amenity_cols = ['bathrooms_clean', 'amenities_count', 'has_wifi', 'has_kitchen', 'has_ac','has_pool', 'has_parking', 'has_balcony',
+                        'has_washer', 'has_tv','has_heating', 'has_elevator', 'has_gym', 'premium_amenities', 'basic_amenities']
         for col in amenity_cols:
             if col in train.columns:
                 train[col] = train[col].fillna(0)
             if col in test.columns:
                 test[col] = test[col].fillna(0)
     
-    # Categorical Encoding
+
     categorical_cols = ['neighbourhood_cleansed', 'property_type', 'room_type', 'host_response_time']
     for col in categorical_cols:
         if col in train.columns:
@@ -168,13 +151,13 @@ def create_features(train, test, raw_train=None, raw_test=None):
             if col in test.columns:
                 test[col] = test[col].map(val_to_num).fillna(-1).astype(int)
     
-    # Drop unnecessary columns
+    # gereksiz columnları droplayalım
     cols_to_drop = ['host_since', 'bathrooms_text', 'first_review', 'last_review']
     train = train.drop(columns=[c for c in cols_to_drop if c in train.columns], errors='ignore')
     test = test.drop(columns=[c for c in cols_to_drop if c in test.columns], errors='ignore')
     
-    print(f"Train shape after FE: {train.shape}")
-    print(f"Test shape after FE: {test.shape}")
+    print(f"Train: {train.shape}")
+    print(f"test: {test.shape}")
     
     return train, test
 
@@ -182,7 +165,6 @@ def create_features(train, test, raw_train=None, raw_test=None):
 def save_engineered_data(train, test, output_dir='data/processed'):
     train.to_csv(f'{output_dir}/train_processed.csv', index=False)
     test.to_csv(f'{output_dir}/test_processed.csv', index=False)
-    print(f"Engineered data saved to {output_dir}/")
 
 
 if __name__ == "__main__":
@@ -191,6 +173,7 @@ if __name__ == "__main__":
     
     raw_train = pd.read_csv('data/raw/train.csv')
     raw_test = pd.read_csv('data/raw/test.csv')
-    
+
     train, test = create_features(train, test, raw_train, raw_test)
+    
     save_engineered_data(train, test)
